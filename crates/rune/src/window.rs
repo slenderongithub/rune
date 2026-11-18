@@ -848,7 +848,7 @@ pub(crate) fn pointer_button(button: MouseButton) -> crate::PointerButton {
 }
 
 #[cfg_attr(target_arch = "wasm32", allow(dead_code))]
-fn gesture_phase(phase: TouchPhase) -> crate::GesturePhase {
+pub(crate) fn gesture_phase(phase: TouchPhase) -> crate::GesturePhase {
     match phase {
         TouchPhase::Started => crate::GesturePhase::Began,
         TouchPhase::Moved => crate::GesturePhase::Moved,

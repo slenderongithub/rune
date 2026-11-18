@@ -166,6 +166,29 @@ impl<T: 'static> AnyHost for Overlay<T> {
                     self.dirty |= pressed;
                 }
             }
+            // The wheel and trackpad scroll, as a window takes them (`window/events.rs`): an
+            // overlay with a scroll view (a popover's growing text field) scrolls under the
+            // pointer. A pass-through overlay never sees them; a region overlay only over its
+            // regions, where the platform routes the pointer to it.
+            WindowEvent::MouseWheel { delta, phase, .. } if self.options.input.resolved(self.interactive) != OverlayInput::None => {
+                let scale = self.surface.live().map_or(1.0, |l| l.scale);
+                let shift = crate::runtime::SHIFT_TURNS_WHEEL && self.mods.shift_key();
+                #[cfg(target_os = "windows")]
+                let points = self.rt.windows_wheel_points(delta, shift);
+                #[cfg(not(target_os = "windows"))]
+                let points = crate::runtime::LINE_POINTS;
+                let (dx, dy) = crate::runtime::wheel_delta(delta, scale, shift, points);
+                let precise = matches!(delta, winit::event::MouseScrollDelta::PixelDelta(_));
+                let phase = crate::window::gesture_phase(phase);
+                match self.rt.pointer() {
+                    Some((x, y)) => self.rt.wheel_event(crate::WheelEvent::new(dx / self.rt.zoom(), dy / self.rt.zoom()).at(x, y).mods(crate::window::map_mods(self.mods))
+                        .phase(phase).precise(precise)),
+                    None if phase == crate::GesturePhase::Began => self.rt.wheel_began(),
+                    None if phase == crate::GesturePhase::Ended => self.rt.wheel_ended(),
+                    None => {}
+                }
+                self.dirty = true;
+            }
             WindowEvent::MouseInput { state, button: winit::event::MouseButton::Left, .. } => {
                 #[cfg(target_os = "macos")]
                 {
